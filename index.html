@@ -473,20 +473,25 @@
 // 1) COLLE ICI LA CONFIGURATION DE TON PROJET FIREBASE (voir le guide)
 // ======================================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBbPpoAro0JNw_cixfI3m3u34dM9wq0owI",
-  authDomain: "jeu-de-role-8d3d3.firebaseapp.com",
-  projectId: "jeu-de-role-8d3d3",
-  storageBucket: "jeu-de-role-8d3d3.firebasestorage.app",
-  messagingSenderId: "257152839692",
-  appId: "1:257152839692:web:02e67584352b37aba47e29"
+  apiKey: "REMPLACE_MOI",
+  authDomain: "REMPLACE_MOI.firebaseapp.com",
+  projectId: "REMPLACE_MOI",
+  storageBucket: "REMPLACE_MOI.appspot.com",
+  messagingSenderId: "REMPLACE_MOI",
+  appId: "REMPLACE_MOI"
 };
 // ======================================================================
 
-firebase.initializeApp(firebaseConfig);
-const dbFs = firebase.firestore();
-
+let dbFs = null;
 const gameId = new URLSearchParams(location.search).get("g") || "partie1";
-const gameRef = dbFs.collection("games").doc(gameId);
+let gameRef = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  dbFs = firebase.firestore();
+  gameRef = dbFs.collection("games").doc(gameId);
+} catch (e) {
+  console.error("Échec de l'initialisation Firebase :", e);
+}
 
 let state = { title: "Table de jeu", mapData: null, tokens: [], initiative: { active:false, round:1, currentIndex:0, order:[] }, diceLog: [] };
 let stateExists = false;
@@ -609,6 +614,7 @@ function applyRoleUI() {
 let saving = false, queuedPatch = null;
 async function saveState(patch) {
   Object.assign(state, patch);
+  if (!gameRef) { renderAll(); return; }
   if (saving) { queuedPatch = Object.assign(queuedPatch || {}, patch); return; }
   saving = true;
   try {
@@ -623,6 +629,13 @@ function saveTokens(newTokens) { saveState({ tokens: newTokens }); }
 async function boot() {
   const hasIdentity = loadIdentity();
   if (!hasIdentity) showOnboarding(); else applyRoleUI();
+
+  if (!gameRef) {
+    $("connStatus").textContent = "Firebase indisponible (script bloqué ou config absente) — mode démo locale, rien n'est partagé ni sauvegardé.";
+    toast("Mode démo locale : rien n'est synchronisé pour l'instant.");
+    renderAll();
+    return;
+  }
 
   if (String(firebaseConfig.apiKey).includes("REMPLACE_MOI")) {
     $("connStatus").textContent = "Configuration Firebase manquante — voir le guide d'installation.";
@@ -834,7 +847,7 @@ function rollStat(label, mod) {
 function renderDiceLog() {
   const wrap = $("diceLogList");
   const log = state.diceLog || [];
-  if (!log.length) { wrap.innerHTML = '<div class="empty-note">Aucun jet pour l\\'instant.</div>'; return; }
+  if (!log.length) { wrap.innerHTML = '<div class="empty-note">Aucun jet pour l\'instant.</div>'; return; }
   wrap.innerHTML = log.map((e) => `
     <div class="dice-log-entry">
       <div class="who">${escapeHtml(e.by)}${e.label ? " — " + escapeHtml(e.label) : ""} · ${escapeHtml(e.formula)}</div>
@@ -908,7 +921,7 @@ function openSheet(tokenId) {
       <span class="sheet-name">${escapeHtml(tok.name || "Sans nom")}</span>
       ${tok.subtitle ? `<span class="sheet-subtitle">— ${escapeHtml(tok.subtitle)}</span>` : ""}
     </div>
-    ${isMine ? '<div class="owner-tag">C\\'est votre personnage</div>' : ""}
+    ${isMine ? '<div class="owner-tag">C\'est votre personnage</div>' : ""}
   `;
   if (isGM && tok.type !== "player") {
     html += `<div class="gm-reveal-row"><span>Visible des joueurs</span>

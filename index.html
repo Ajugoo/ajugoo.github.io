@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Table de jeu</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ede6d3; --bg-image: radial-gradient(ellipse at top left, #f3ecd9, #e4dabf 60%, #d9cca6 100%);
+    --panel: #f6f1e2; --panel-2: #eee5cd; --border: #c7b98e; --border-soft: #d9cca6;
+    --text: #2b2418; --text-dim: #6e6248; --accent: #8a5a1e; --accent-2: #b3812c;
+    --monster: #9c3b2e; --monster-bg: rgba(156,59,46,0.14);
+    --npc: #2b5b7e; --npc-bg: rgba(43,91,126,0.14);
+    --player: #2f6b3a; --player-bg: rgba(47,107,58,0.14);
+    --shadow: 0 8px 24px rgba(43,36,24,0.18); --radius: 10px;
+    --font-display: 'Spectral', Georgia, serif;
+    --font-mono: 'IBM Plex Mono', Consolas, monospace;
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#13161c; --bg-image: radial-gradient(ellipse at top left,#1a1e26,#12151b 70%);
+      --panel:#1b1f28; --panel-2:#20242f; --border:#383f4d; --border-soft:#2a303c;
+      --text:#e9e4d6; --text-dim:#9199a8; --accent:#cfa23a; --accent-2:#e0b654;
+      --monster:#d16f5f; --monster-bg:rgba(209,111,95,0.16);
+      --npc:#6ba3d6; --npc-bg:rgba(107,163,214,0.16);
+      --player:#74b781; --player-bg:rgba(116,183,129,0.16);
+      --shadow: 0 8px 28px rgba(0,0,0,0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#13161c; --bg-image: radial-gradient(ellipse at top left,#1a1e26,#12151b 70%);
+    --panel:#1b1f28; --panel-2:#20242f; --border:#383f4d; --border-soft:#2a303c;
+    --text:#e9e4d6; --text-dim:#9199a8; --accent:#cfa23a; --accent-2:#e0b654;
+    --monster:#d16f5f; --monster-bg:rgba(209,111,95,0.16);
+    --npc:#6ba3d6; --npc-bg:rgba(107,163,214,0.16);
+    --player:#74b781; --player-bg:rgba(116,183,129,0.16);
+    --shadow: 0 8px 28px rgba(0,0,0,0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body { height:100%; margin:0; }
+  body {
+    background: var(--bg) var(--bg-image); color: var(--text); font-family: var(--font-ui);
+    display:flex; flex-direction:column; height:100%; overflow:hidden;
+  }
+  button { font-family: inherit; }
+
+  header {
+    display:flex; align-items:center; gap:12px; padding:10px 16px;
+    background: var(--panel); border-bottom:1px solid var(--border); flex-shrink:0; z-index:30;
+  }
+  .title-wrap { display:flex; align-items:baseline; gap:10px; flex:1; min-width:0; }
+  h1 {
+    font-family: var(--font-display); font-weight:600; font-size:1.25rem; margin:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  h1[contenteditable="true"] { cursor:text; outline:none; border-bottom:1px dashed var(--border); }
+  .role-badge {
+    font-size:.72rem; font-family:var(--font-mono); padding:3px 9px; border-radius:100px;
+    border:1px solid var(--border); color:var(--text-dim); white-space:nowrap; flex-shrink:0; cursor:pointer;
+  }
+  .role-badge.gm { color:var(--accent); border-color:var(--accent); }
+  .icon-btn {
+    background:none; border:1px solid var(--border); color:var(--text); border-radius:8px;
+    padding:7px 10px; cursor:pointer; font-size:.85rem; display:inline-flex; align-items:center; gap:6px;
+  }
+  .icon-btn:hover { background: var(--panel-2); border-color: var(--accent-2); }
+  .icon-btn.primary { background: var(--accent); border-color: var(--accent); color:#fdf9ee; font-weight:600; }
+  .icon-btn.primary:hover { background: var(--accent-2); }
+  .icon-btn.danger { color: var(--monster); border-color: var(--monster); }
+  .icon-btn:disabled { opacity:.45; cursor:not-allowed; }
+  .sidebar-toggle { display:none; }
+
+  .layout { flex:1; display:flex; min-height:0; }
+  main { flex:1; position:relative; min-width:0; background:#00000010; }
+  #mapViewport {
+    position:absolute; inset:0; overflow:hidden; background-size:cover; background-position:center;
+    background-color: var(--panel-2); touch-action:none;
+  }
+  .map-empty {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; text-align:center; padding:24px;
+    background-image: linear-gradient(var(--border-soft) 1px, transparent 1px), linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
+    background-size:40px 40px;
+  }
+  .map-empty p { font-family:var(--font-display); font-style:italic; color:var(--text-dim); max-width:320px; margin:0; }
+  .map-toolbar { position:absolute; top:12px; right:12px; display:flex; gap:8px; z-index:10; }
+  .map-toolbar .icon-btn { background: var(--panel); box-shadow: var(--shadow); }
+  .legend {
+    position:absolute; bottom:12px; left:12px; display:flex; gap:14px; background:var(--panel);
+    border:1px solid var(--border); padding:7px 12px; border-radius:100px; box-shadow:var(--shadow);
+    font-size:.75rem; z-index:10;
+  }
+  .legend span { display:inline-flex; align-items:center; gap:6px; color:var(--text-dim); }
+  .legend .dot { width:9px; height:9px; border-radius:50%; }
+
+  .token {
+    position:absolute; width:42px; height:42px; border-radius:50%; transform:translate(-50%,-50%);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display);
+    font-weight:700; font-size:1rem; color:#fff; border:2.5px solid #fff; cursor:pointer;
+    user-select:none; touch-action:none; box-shadow:0 3px 10px rgba(0,0,0,.35); z-index:5;
+  }
+  .token:active { cursor:grabbing; box-shadow:0 5px 16px rgba(0,0,0,.45); z-index:6; }
+  .token.movable { cursor:grab; }
+  .token.monster { background: var(--monster); }
+  .token.npc { background: var(--npc); }
+  .token.player { background: var(--player); }
+  .token .label {
+    position:absolute; top:100%; margin-top:3px; font-family:var(--font-ui); font-weight:600;
+    font-size:.68rem; color:var(--text); background:var(--panel); padding:1px 6px; border-radius:4px;
+    white-space:nowrap; border:1px solid var(--border-soft); pointer-events:none;
+  }
+  .token .mine-ring { position:absolute; inset:-5px; border-radius:50%; border:2px dashed var(--accent-2); }
+  .token .turn-ring { position:absolute; inset:-8px; border-radius:50%; border:3px solid var(--accent); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .token .fx-badge {
+    position:absolute; bottom:-4px; right:-4px; background:var(--accent); color:#fff; font-size:.6rem;
+    font-weight:700; border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center;
+    border:1.5px solid var(--panel);
+  }
+
+  aside {
+    width:320px; flex-shrink:0; background:var(--panel); border-left:1px solid var(--border);
+    display:flex; flex-direction:column;
+  }
+  .tabs { display:flex; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .tabs button {
+    flex:1; background:none; border:none; padding:10px 4px; font-size:.72rem; font-weight:700;
+    color:var(--text-dim); cursor:pointer; border-bottom:2px solid transparent; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-panel { flex:1; overflow-y:auto; padding:14px; display:none; }
+  .tab-panel.active { display:block; }
+  .side-section h2 { font-family:var(--font-display); font-size:.95rem; font-weight:600; margin:0 0 8px 0; }
+  .hint { font-size:.76rem; color:var(--text-dim); line-height:1.5; margin:0 0 10px 0; }
+  .filter-row { display:flex; gap:6px; margin-bottom:10px; }
+  .filter-row button {
+    flex:1; background:var(--panel-2); border:1px solid var(--border-soft); color:var(--text-dim);
+    border-radius:7px; padding:5px 4px; font-size:.7rem; cursor:pointer; font-weight:600;
+  }
+  .filter-row button.active { background:var(--accent); border-color:var(--accent); color:#fdf9ee; }
+  .token-row { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
+  .token-row:hover { background:var(--panel-2); border-color:var(--border-soft); }
+  .token-row .swatch { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:700; color:#fff; flex-shrink:0; }
+  .token-row .name { flex:1; min-width:0; font-size:.85rem; }
+  .token-row .name strong { display:block; }
+  .token-row .name small { color:var(--text-dim); font-size:.72rem; }
+  .row-actions { display:none; gap:4px; }
+  .token-row:hover .row-actions { display:flex; }
+  .row-actions button { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:.9rem; padding:2px 4px; }
+  .row-actions button:hover { color:var(--accent); }
+  .empty-note { font-size:.78rem; color:var(--text-dim); font-style:italic; padding:6px 2px; }
+  .toggle-line { display:flex; align-items:center; justify-content:space-between; font-size:.8rem; color:var(--text-dim); padding:4px 0; }
+  .switch { position:relative; width:34px; height:19px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .switch .slider { position:absolute; inset:0; background:var(--border-soft); border-radius:20px; cursor:pointer; transition:.15s; }
+  .switch .slider::before { content:""; position:absolute; width:14px; height:14px; left:3px; top:2.5px; background:#fff; border-radius:50%; transition:.15s; }
+  .switch input:checked + .slider { background:var(--accent); }
+  .switch input:checked + .slider::before { transform:translateX(15px); }
+
+  /* Initiative */
+  .init-row {
+    display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; margin-bottom:6px;
+    background:var(--panel-2); border:1px solid var(--border-soft);
+  }
+  .init-row.current { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .init-score { font-family:var(--font-mono); font-weight:700; width:26px; text-align:center; }
+  .init-name { flex:1; font-size:.85rem; }
+  .round-badge { font-family:var(--font-mono); font-size:.75rem; color:var(--text-dim); margin-bottom:10px; }
+
+  /* Dice */
+  .dice-quick { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px; }
+  .dice-quick button {
+    background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 2px;
+    font-family:var(--font-mono); font-weight:700; cursor:pointer; color:var(--text);
+  }
+  .dice-quick button:hover { border-color:var(--accent); color:var(--accent); }
+  .dice-custom { display:flex; gap:6px; margin-bottom:14px; }
+  .dice-custom input {
+    flex:1; padding:8px 10px; border-radius:7px; border:1px solid var(--border-soft);
+    background:var(--bg); color:var(--text); font-family:var(--font-mono);
+  }
+  .dice-log-entry { padding:8px 0; border-bottom:1px dotted var(--border-soft); font-size:.8rem; }
+  .dice-log-entry .who { color:var(--text-dim); font-size:.72rem; }
+  .dice-log-entry .total { font-family:var(--font-mono); font-weight:700; color:var(--accent); font-size:1rem; }
+  .dice-log-entry .detail { color:var(--text-dim); font-size:.72rem; }
+
+  /* Modal */
+  .overlay { position:fixed; inset:0; background:rgba(20,16,8,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px; }
+  .overlay.hidden { display:none; }
+  .modal { background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:460px; max-height:90vh; overflow-y:auto; border:1px solid var(--border); }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border-soft); }
+  .modal-header h3 { font-family:var(--font-display); font-size:1.05rem; margin:0; font-weight:600; }
+  .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--text-dim); line-height:1; padding:4px; }
+  .modal-body { padding:16px 18px 20px; }
+  .modal-footer { padding:12px 18px 18px; display:flex; justify-content:flex-end; gap:8px; }
+
+  .sheet-topline { display:flex; align-items:baseline; gap:8px; margin-bottom:2px; flex-wrap:wrap; }
+  .sheet-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+  .sheet-name { font-family:var(--font-display); font-weight:700; font-size:1.2rem; }
+  .sheet-subtitle { color:var(--text-dim); font-size:.85rem; font-style:italic; }
+  .sheet-levelline { color:var(--text-dim); font-size:.82rem; margin-bottom:4px; }
+  .hp-bar-track { height:8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border-soft); overflow:hidden; margin:8px 0 14px; }
+  .hp-bar-fill { height:100%; background:var(--monster); border-radius:5px; }
+  .hp-bar-fill.ok { background:var(--player); }
+  .hp-bar-fill.mid { background:var(--accent-2); }
+  .hp-edit { display:flex; gap:6px; align-items:center; margin-bottom:10px; }
+  .hp-edit input { width:60px; padding:5px 6px; border-radius:6px; border:1px solid var(--border-soft); background:var(--bg); color:var(--text); font-family:var(--font-mono); }
+  .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
+  .stat-box { background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:8px 4px; text-align:center; cursor:pointer; }
+  .stat-box:hover { border-color:var(--accent); }
+  .stat-box .val { font-family:var(--font-mono); font-weight:600; font-size:1.05rem; }
+  .stat-box .lbl { font-size:.65rem; color:var(--text-dim); margin-top:2px; }
+  .sheet-section-title { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin:14px 0 6px; font-weight:600; }
+  .sec-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 14px; font-size:.85rem; }
+  .sec-grid div { display:flex; justify-content:space-between; }
+  .sec-grid span:last-child { font-family:var(--font-mono); }
+  .skills-list { display:flex; flex-direction:column; gap:4px; font-size:.85rem; }
+  .skills-list div { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dotted var(--border-soft); cursor:pointer; }
+  .skills-list div:hover { color:var(--accent); }
+  .skills-list span:last-child { font-family:var(--font-mono); font-weight:600; }
+  .locked-box { text-align:center; padding:26px 12px; color:var(--text-dim); border:1px dashed var(--border-soft); border-radius:10px; font-style:italic; }
+  .sheet-actions { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .gm-reveal-row { display:flex; align-items:center; justify-content:space-between; background:var(--panel-2); border-radius:8px; padding:8px 10px; margin-bottom:14px; font-size:.8rem; }
+  .owner-tag { font-size:.72rem; color:var(--text-dim); margin-top:-2px; }
+  .inv-row, .fx-row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:.83rem; border-bottom:1px dotted var(--border-soft); }
+  .inv-row .qty, .fx-row .dur { font-family:var(--font-mono); color:var(--text-dim); font-size:.75rem; }
+  .inv-row .rm, .fx-row .rm { margin-left:auto; background:none; border:none; color:var(--text-dim); cursor:pointer; }
+  .mini-add-form { display:flex; gap:6px; margin-top:8px; }
+  .mini-add-form input { padding:6px 8px; border-radius:6px; border:1px solid var(--border-soft); background:var(--bg); color:var(--text); font-size:.8rem; }
+  .mini-add-form input.name { flex:1; }
+  .mini-add-form input.num { width:52px; }
+
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:.78rem; color:var(--text-dim); margin-bottom:4px; font-weight:600; }
+  .field input[type="text"], .field input[type="number"], .field select {
+    width:100%; padding:8px 10px; border-radius:7px; border:1px solid var(--border-soft);
+    background:var(--bg); color:var(--text); font-family:var(--font-ui); font-size:.88rem;
+  }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row4 { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .type-select { display:flex; gap:8px; }
+  .type-opt { flex:1; text-align:center; padding:9px 4px; border-radius:8px; cursor:pointer; border:1.5px solid var(--border-soft); font-size:.78rem; font-weight:600; color:var(--text-dim); }
+  .type-opt.sel.monster { border-color:var(--monster); background:var(--monster-bg); color:var(--monster); }
+  .type-opt.sel.npc { border-color:var(--npc); background:var(--npc-bg); color:var(--npc); }
+  .type-opt.sel.player { border-color:var(--player); background:var(--player-bg); color:var(--player); }
+  .skill-edit-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+  .skill-edit-row input[type="text"] { flex:1; }
+  .skill-edit-row input[type="number"] { width:64px; }
+  .skill-edit-row button { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:1.1rem; padding:2px 6px; }
+  .add-skill-btn { background:none; border:1px dashed var(--border-soft); color:var(--text-dim); border-radius:7px; padding:6px; width:100%; cursor:pointer; font-size:.78rem; margin-top:2px; }
+  .add-skill-btn:hover { color:var(--accent); border-color:var(--accent); }
+
+  .onboard-modal .modal { max-width:380px; }
+  .role-pick { display:flex; gap:10px; margin-bottom:14px; }
+  .role-pick button { flex:1; padding:16px 8px; border-radius:10px; border:1.5px solid var(--border-soft); background:var(--panel-2); cursor:pointer; font-weight:700; color:var(--text); }
+  .role-pick button:hover { border-color:var(--accent); color:var(--accent); }
+
+  .toast {
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--panel); border:1px solid var(--border); color:var(--text); padding:9px 16px;
+    border-radius:8px; box-shadow:var(--shadow); font-size:.82rem; z-index:200; opacity:0;
+    pointer-events:none; transition:.2s;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  @media (max-width:780px) {
+    aside { position:fixed; top:0; bottom:0; right:0; z-index:60; transform:translateX(100%); transition:transform .2s ease; box-shadow:-8px 0 24px rgba(0,0,0,.25); width:min(340px,88vw); }
+    aside.open { transform:translateX(0); }
+    .sidebar-toggle { display:inline-flex; }
+    h1 { font-size:1.05rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-wrap">
+    <h1 id="gameTitle" spellcheck="false">Table de jeu</h1>
+    <span class="role-badge" id="roleBadge" title="Cliquer pour changer de rôle">…</span>
+  </div>
+  <button class="icon-btn sidebar-toggle" id="toggleSidebar" aria-label="Ouvrir le panneau">☰</button>
+</header>
+
+<div class="layout">
+  <main>
+    <div id="mapViewport">
+      <div class="map-empty" id="mapEmpty">
+        <p>Aucune carte n'a encore été importée pour cette zone.</p>
+        <button class="icon-btn primary" id="emptyUploadBtn" style="display:none;">Importer une carte</button>
+      </div>
+    </div>
+    <div class="map-toolbar">
+      <button class="icon-btn" id="mapUploadBtn" style="display:none;">🗺️ Changer la carte</button>
+      <button class="icon-btn primary" id="addTokenBtn" style="display:none;">+ Jeton</button>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--monster)"></span>Monstre</span>
+      <span><span class="dot" style="background:var(--npc)"></span>PNJ</span>
+      <span><span class="dot" style="background:var(--player)"></span>Joueur</span>
+    </div>
+    <input type="file" id="mapFileInput" accept="image/*" style="display:none;">
+  </main>
+
+  <aside id="sidebar">
+    <div class="tabs">
+      <button class="active" data-tab="tokens">Jetons</button>
+      <button data-tab="initiative">Initiative</button>
+      <button data-tab="dice">Dés</button>
+      <button data-tab="settings">Réglages</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="tokens">
+      <div class="side-section" id="gmMapSection" style="display:none;">
+        <p class="hint">Partage ce lien avec tes amis. Chacun choisit son rôle à la première ouverture.</p>
+      </div>
+      <div class="side-section">
+        <h2>Jetons</h2>
+        <div class="filter-row">
+          <button class="active" data-filter="all">Tous</button>
+          <button data-filter="monster">Monstres</button>
+          <button data-filter="npc">PNJ</button>
+          <button data-filter="player">Joueurs</button>
+        </div>
+        <div id="tokenList"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="initiative">
+      <div class="side-section">
+        <h2>Initiative &amp; tours</h2>
+        <div class="round-badge" id="roundBadge">Aucun combat en cours</div>
+        <div id="initList"></div>
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+          <button class="icon-btn primary" id="rollInitBtn">🎲 Lancer l'initiative</button>
+          <button class="icon-btn" id="nextTurnBtn" style="display:none;">Tour suivant ▶</button>
+          <button class="icon-btn danger" id="endCombatBtn" style="display:none;">Terminer le combat</button>
+        </div>
+        <p class="hint" style="margin-top:10px;">Le round fait automatiquement diminuer la durée des effets actifs à chaque nouveau tour complet.</p>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="dice">
+      <div class="side-section">
+        <h2>Lancer de dés</h2>
+        <div class="dice-quick">
+          <button data-die="4">d4</button>
+          <button data-die="6">d6</button>
+          <button data-die="8">d8</button>
+          <button data-die="10">d10</button>
+          <button data-die="12">d12</button>
+          <button data-die="20">d20</button>
+          <button data-die="100">d100</button>
+        </div>
+        <div class="dice-custom">
+          <input type="text" id="customFormula" placeholder="ex : 2d6+3">
+          <button class="icon-btn primary" id="rollCustomBtn">Lancer</button>
+        </div>
+        <div class="sheet-section-title">Journal</div>
+        <div id="diceLogList"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="settings">
+      <div class="side-section">
+        <h2>Affichage</h2>
+        <div class="toggle-line">Afficher les noms sur la carte
+          <label class="switch"><input type="checkbox" id="showLabels" checked><span class="slider"></span></label>
+        </div>
+        <div class="toggle-line">Thème sombre
+          <label class="switch"><input type="checkbox" id="themeToggle"><span class="slider"></span></label>
+        </div>
+      </div>
+      <div class="side-section">
+        <h2>Connexion</h2>
+        <p class="hint" id="connStatus">…</p>
+        <button class="icon-btn" id="changeRoleBtn">Changer de rôle</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Onboarding -->
+<div class="overlay hidden onboard-modal" id="onboardOverlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Qui es-tu ?</h3></div>
+    <div class="modal-body">
+      <p class="hint">Ce choix est propre à cet appareil / ce navigateur.</p>
+      <div class="role-pick">
+        <button id="pickGM">🛡️ Maître du Jeu</button>
+        <button id="pickPlayer">🎭 Joueur</button>
+      </div>
+      <div class="field" id="nameField" style="display:none;">
+        <label>Ton prénom</label>
+        <input type="text" id="playerNameInput" placeholder="Arkan">
+      </div>
+      <button class="icon-btn primary" id="confirmPlayerBtn" style="display:none; width:100%;">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sheet modal -->
+<div class="overlay hidden" id="sheetOverlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Fiche</h3><button class="modal-close" id="sheetClose">✕</button></div>
+    <div class="modal-body" id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- Edit/Add token modal -->
+<div class="overlay hidden" id="formOverlay">
+  <div class="modal">
+    <div class="modal-header"><h3 id="formTitle">Nouveau jeton</h3><button class="modal-close" id="formClose">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Type</label>
+        <div class="type-select" id="typeSelect">
+          <div class="type-opt monster" data-type="monster">Monstre</div>
+          <div class="type-opt npc" data-type="npc">PNJ</div>
+          <div class="type-opt player" data-type="player">Joueur</div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Nom</label><input type="text" id="fName" placeholder="Arkan"></div>
+        <div class="field"><label>Sous-titre</label><input type="text" id="fSubtitle" placeholder="Nocturne / Voleur"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Niveau</label><input type="number" id="fLevel" value="1"></div>
+        <div class="field"><label>PV actuels / max</label>
+          <div style="display:flex;gap:6px;"><input type="number" id="fHpCur" value="10"><input type="number" id="fHpMax" value="10"></div>
+        </div>
+      </div>
+      <div class="sheet-section-title">Caractéristiques</div>
+      <div class="row4">
+        <div class="field"><label>Force</label><input type="number" id="fFor" value="0"></div>
+        <div class="field"><label>Agilité</label><input type="number" id="fAgi" value="0"></div>
+        <div class="field"><label>Esprit</label><input type="number" id="fEsp" value="0"></div>
+        <div class="field"><label>Volonté</label><input type="number" id="fVol" value="0"></div>
+      </div>
+      <div class="sheet-section-title">Secondaires</div>
+      <div class="row2">
+        <div class="field"><label>Défense</label><input type="number" id="fDef" value="10"></div>
+        <div class="field"><label>Perception</label><input type="number" id="fPer" value="10"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Résistance</label><input type="number" id="fRes" value="10"></div>
+        <div class="field"><label>Volonté mentale</label><input type="number" id="fVolM" value="10"></div>
+      </div>
+      <div class="sheet-section-title">Compétences</div>
+      <div id="skillsEditor"></div>
+      <button class="add-skill-btn" id="addSkillBtn">+ Ajouter une compétence</button>
+      <div class="toggle-line" id="revealRow" style="margin-top:14px;">Visible des joueurs
+        <label class="switch"><input type="checkbox" id="fRevealed"><span class="slider"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="icon-btn danger" id="deleteTokenBtn" style="display:none; margin-right:auto;">Supprimer</button>
+      <button class="icon-btn" id="formCancel">Annuler</button>
+      <button class="icon-btn primary" id="formSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+// ======================================================================
+// 1) COLLE ICI LA CONFIGURATION DE TON PROJET FIREBASE (voir le guide)
+// ======================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBbPpoAro0JNw_cixfI3m3u34dM9wq0owI",
+  authDomain: "jeu-de-role-8d3d3.firebaseapp.com",
+  projectId: "jeu-de-role-8d3d3",
+  storageBucket: "jeu-de-role-8d3d3.firebasestorage.app",
+  messagingSenderId: "257152839692",
+  appId: "1:257152839692:web:02e67584352b37aba47e29"
+};
+// ======================================================================
+
+firebase.initializeApp(firebaseConfig);
+const dbFs = firebase.firestore();
+
+const gameId = new URLSearchParams(location.search).get("g") || "partie1";
+const gameRef = dbFs.collection("games").doc(gameId);
+
+let state = { title: "Table de jeu", mapData: null, tokens: [], initiative: { active:false, round:1, currentIndex:0, order:[] }, diceLog: [] };
+let stateExists = false;
+let isGM = false;
+let myId = null;
+let myName = "";
+let currentFilter = "all";
+let editingTokenId = null;
+let editingSkills = [];
+let showLabels = true;
+
+const $ = (id) => document.getElementById(id);
+const mapViewport = $("mapViewport");
+const mapEmpty = $("mapEmpty");
+const tokenList = $("tokenList");
+const toastEl = $("toast");
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+function uid() { return crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2); }
+function signed(n) { n = Number(n) || 0; return (n >= 0 ? "+" : "") + n; }
+function initials(name) { return (name || "?").trim().slice(0, 2).toUpperCase(); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+// ---------------- Theme ----------------
+const themeToggle = $("themeToggle");
+try {
+  const saved = localStorage.getItem("tv-theme");
+  if (saved === "dark") { document.documentElement.setAttribute("data-theme","dark"); themeToggle.checked = true; }
+  else if (saved === "light") { document.documentElement.setAttribute("data-theme","light"); }
+} catch (e) {}
+themeToggle.addEventListener("change", () => {
+  const val = themeToggle.checked ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", val);
+  try { localStorage.setItem("tv-theme", val); } catch (e) {}
+});
+$("showLabels").addEventListener("change", (e) => { showLabels = e.target.checked; renderTokens(); });
+
+// ---------------- Sidebar / tabs ----------------
+$("toggleSidebar").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+document.querySelectorAll(".tabs button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add("active");
+  });
+});
+
+// ---------------- Title ----------------
+const titleEl = $("gameTitle");
+titleEl.addEventListener("blur", () => {
+  const val = titleEl.textContent.trim() || "Table de jeu";
+  titleEl.textContent = val;
+  if (isGM && val !== state.title) saveState({ title: val });
+});
+titleEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); } });
+
+// ---------------- Onboarding (local identity, no account) ----------------
+function loadIdentity() {
+  try {
+    const role = localStorage.getItem("tv-role");
+    if (role === "gm") { isGM = true; return true; }
+    if (role === "player") {
+      isGM = false;
+      myId = localStorage.getItem("tv-playerid");
+      myName = localStorage.getItem("tv-playername") || "";
+      if (!myId) { myId = uid(); localStorage.setItem("tv-playerid", myId); }
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+function showOnboarding() { $("onboardOverlay").classList.remove("hidden"); }
+function hideOnboarding() { $("onboardOverlay").classList.add("hidden"); }
+$("pickGM").addEventListener("click", () => {
+  isGM = true;
+  try { localStorage.setItem("tv-role", "gm"); } catch (e) {}
+  hideOnboarding();
+  applyRoleUI();
+});
+$("pickPlayer").addEventListener("click", () => {
+  $("nameField").style.display = "block";
+  $("confirmPlayerBtn").style.display = "block";
+});
+$("confirmPlayerBtn").addEventListener("click", () => {
+  const name = $("playerNameInput").value.trim();
+  if (!name) { toast("Indique un prénom."); return; }
+  isGM = false;
+  myName = name;
+  myId = uid();
+  try {
+    localStorage.setItem("tv-role", "player");
+    localStorage.setItem("tv-playerid", myId);
+    localStorage.setItem("tv-playername", myName);
+  } catch (e) {}
+  hideOnboarding();
+  applyRoleUI();
+});
+$("roleBadge").addEventListener("click", () => showOnboarding());
+$("changeRoleBtn").addEventListener("click", () => showOnboarding());
+
+function applyRoleUI() {
+  $("roleBadge").textContent = isGM ? "Maître du Jeu" : (myName ? "Joueur — " + myName : "Joueur");
+  $("roleBadge").classList.toggle("gm", isGM);
+  titleEl.setAttribute("contenteditable", isGM ? "true" : "false");
+  $("gmMapSection").style.display = isGM ? "block" : "none";
+  $("addTokenBtn").style.display = isGM ? "inline-flex" : "none";
+  $("mapUploadBtn").style.display = isGM ? "inline-flex" : "none";
+  $("emptyUploadBtn").style.display = isGM ? "inline-flex" : "none";
+  $("rollInitBtn").style.display = isGM ? "inline-flex" : "none";
+  renderAll();
+}
+
+// ---------------- Firestore load/save ----------------
+let saving = false, queuedPatch = null;
+async function saveState(patch) {
+  Object.assign(state, patch);
+  if (saving) { queuedPatch = Object.assign(queuedPatch || {}, patch); return; }
+  saving = true;
+  try {
+    if (!stateExists) { await gameRef.set(state); stateExists = true; }
+    else { await gameRef.update(patch); }
+  } catch (e) { toast("Modification non enregistrée : " + (e.message || "vérifie la configuration Firebase")); }
+  saving = false;
+  if (queuedPatch) { const p = queuedPatch; queuedPatch = null; saveState(p); }
+}
+function saveTokens(newTokens) { saveState({ tokens: newTokens }); }
+
+async function boot() {
+  const hasIdentity = loadIdentity();
+  if (!hasIdentity) showOnboarding(); else applyRoleUI();
+
+  if (String(firebaseConfig.apiKey).includes("REMPLACE_MOI")) {
+    $("connStatus").textContent = "Configuration Firebase manquante — voir le guide d'installation.";
+    toast("Colle ta configuration Firebase dans le fichier pour activer la synchronisation.");
+    renderAll();
+    return;
+  }
+
+  try {
+    const snap = await gameRef.get();
+    if (snap.exists) { state = Object.assign(defaultState(), snap.data()); stateExists = true; }
+    else if (isGM) { await gameRef.set(state); stateExists = true; }
+  } catch (e) {
+    $("connStatus").textContent = "Connexion impossible : " + (e.message || e);
+    toast("Connexion à la base impossible.");
+  }
+  renderAll();
+
+  gameRef.onSnapshot((snap) => {
+    if (!snap.exists) return;
+    state = Object.assign(defaultState(), snap.data());
+    stateExists = true;
+    renderAll();
+    $("connStatus").textContent = "Connecté — partie « " + gameId + " ».";
+  }, () => { $("connStatus").textContent = "Connexion perdue."; });
+}
+function defaultState() { return { title: "Table de jeu", mapData: null, tokens: [], initiative: { active:false, round:1, currentIndex:0, order:[] }, diceLog: [] }; }
+
+// ---------------- Map ----------------
+function renderMap() {
+  if (state.mapData) { mapViewport.style.backgroundImage = `url("${state.mapData}")`; mapEmpty.style.display = "none"; }
+  else { mapViewport.style.backgroundImage = "none"; mapEmpty.style.display = "flex"; }
+}
+function compressImage(file, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.onload = () => resolve(img); img.onerror = reject; img.src = reader.result; };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  }).then((img) => {
+    let w = img.naturalWidth, h = img.naturalHeight;
+    let maxDim = 1600, quality = 0.75;
+    function attempt() {
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", quality);
+    }
+    let out = attempt();
+    let tries = 0;
+    while (out.length * 0.75 > maxBytes && tries < 6) {
+      if (quality > 0.4) quality -= 0.12; else maxDim = Math.round(maxDim * 0.8);
+      out = attempt();
+      tries++;
+    }
+    return out;
+  });
+}
+async function handleMapFile(file) {
+  if (!file) return;
+  toast("Import de la carte…");
+  try {
+    const dataUrl = await compressImage(file, 700000);
+    await saveState({ mapData: dataUrl });
+    toast("Carte mise à jour.");
+  } catch (e) { toast("Échec de l'import de la carte."); }
+}
+$("mapFileInput").addEventListener("change", (e) => handleMapFile(e.target.files[0]));
+$("mapUploadBtn").addEventListener("click", () => $("mapFileInput").click());
+$("emptyUploadBtn").addEventListener("click", () => $("mapFileInput").click());
+
+// ---------------- Tokens on map ----------------
+function canDrag(token) {
+  if (isGM) return true;
+  if (token.type === "player" && myId && token.ownerId === myId) return true;
+  return false;
+}
+function tokenColorVar(type) { return type === "monster" ? "var(--monster)" : type === "npc" ? "var(--npc)" : "var(--player)"; }
+function currentTurnTokenId() {
+  const init = state.initiative;
+  if (!init || !init.active || !init.order.length) return null;
+  const entry = init.order[init.currentIndex];
+  return entry ? entry.tokenId : null;
+}
+
+function renderTokens() {
+  mapViewport.querySelectorAll(".token").forEach((el) => el.remove());
+  const activeTurnId = currentTurnTokenId();
+  (state.tokens || []).forEach((tok) => {
+    const el = document.createElement("div");
+    el.className = "token " + tok.type;
+    el.style.left = (tok.x ?? 50) + "%";
+    el.style.top = (tok.y ?? 50) + "%";
+    el.dataset.id = tok.id;
+    if (canDrag(tok)) el.classList.add("movable");
+    el.appendChild(document.createTextNode(initials(tok.name)));
+    if (tok.id === activeTurnId) { const ring = document.createElement("div"); ring.className = "turn-ring"; el.appendChild(ring); }
+    if (myId && tok.ownerId === myId) { const ring = document.createElement("div"); ring.className = "mine-ring"; el.appendChild(ring); }
+    if (tok.effects && tok.effects.length) { const b = document.createElement("div"); b.className = "fx-badge"; b.textContent = tok.effects.length; el.appendChild(b); }
+    if (showLabels) { const lbl = document.createElement("div"); lbl.className = "label"; lbl.textContent = tok.name || "?"; el.appendChild(lbl); }
+    attachTokenEvents(el, tok.id);
+    mapViewport.appendChild(el);
+  });
+}
+
+function attachTokenEvents(el, tokenId) {
+  let startX, startY, moved, permitted;
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const tok = (state.tokens || []).find((t) => t.id === tokenId);
+    if (!tok) return;
+    permitted = canDrag(tok);
+    startX = e.clientX; startY = e.clientY; moved = false;
+    el.setPointerCapture(e.pointerId);
+    function onMove(ev) {
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
+      if (!permitted || !moved) return;
+      const rect = mapViewport.getBoundingClientRect();
+      let px = ((ev.clientX - rect.left) / rect.width) * 100;
+      let py = ((ev.clientY - rect.top) / rect.height) * 100;
+      px = Math.max(2, Math.min(98, px)); py = Math.max(2, Math.min(98, py));
+      el.style.left = px + "%"; el.style.top = py + "%";
+      el._px = px; el._py = py;
+    }
+    function onUp() {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      if (moved && permitted && el._px != null) {
+        const newTokens = (state.tokens || []).map((t) => t.id === tokenId ? Object.assign({}, t, { x: Math.round(el._px*10)/10, y: Math.round(el._py*10)/10 }) : t);
+        saveTokens(newTokens);
+      } else if (!moved) { openSheet(tokenId); }
+    }
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+  });
+}
+
+// ---------------- Sidebar token list ----------------
+$("addTokenBtn").addEventListener("click", () => openForm(null));
+document.querySelectorAll(".filter-row button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-row button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active"); currentFilter = btn.dataset.filter; renderTokenList();
+  });
+});
+function renderTokenList() {
+  tokenList.innerHTML = "";
+  const list = (state.tokens || []).filter((t) => currentFilter === "all" || t.type === currentFilter);
+  if (!list.length) { tokenList.innerHTML = '<div class="empty-note">Aucun jeton pour le moment.</div>'; return; }
+  list.forEach((tok) => {
+    const row = document.createElement("div");
+    row.className = "token-row";
+    row.innerHTML = `
+      <div class="swatch" style="background:${tokenColorVar(tok.type)}">${initials(tok.name)}</div>
+      <div class="name"><strong>${escapeHtml(tok.name || "Sans nom")}</strong><small>${escapeHtml(tok.subtitle || "")}</small></div>
+      <div class="row-actions">${isGM ? '<button data-act="edit" title="Modifier">✎</button><button data-act="del" title="Supprimer">🗑</button>' : ""}</div>`;
+    row.addEventListener("click", (e) => {
+      if (e.target.dataset.act === "edit") { openForm(tok.id); return; }
+      if (e.target.dataset.act === "del") { deleteToken(tok.id); return; }
+      openSheet(tok.id);
+    });
+    tokenList.appendChild(row);
+  });
+}
+function deleteToken(id) { saveTokens((state.tokens || []).filter((t) => t.id !== id)); toast("Jeton supprimé."); }
+
+// ---------------- Dice ----------------
+function rollFormula(formula) {
+  const m = String(formula).trim().toLowerCase().match(/^(\d{0,2})d(\d{1,3})([+-]\d{1,3})?$/);
+  if (!m) return null;
+  const n = Math.max(1, Math.min(20, parseInt(m[1] || "1", 10)));
+  const sides = parseInt(m[2], 10);
+  const mod = m[3] ? parseInt(m[3], 10) : 0;
+  const rolls = [];
+  let sum = 0;
+  for (let i = 0; i < n; i++) { const r = 1 + Math.floor(Math.random() * sides); rolls.push(r); sum += r; }
+  return { n, sides, mod, rolls, total: sum + mod };
+}
+function whoAmI() { return isGM ? "MJ" : (myName || "Joueur"); }
+function pushDiceLog(entry) {
+  const log = [{ id: uid(), ts: Date.now(), by: whoAmI(), ...entry }, ...(state.diceLog || [])].slice(0, 40);
+  saveState({ diceLog: log });
+}
+document.querySelectorAll(".dice-quick button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const r = rollFormula("1d" + btn.dataset.die);
+    pushDiceLog({ formula: "1d" + btn.dataset.die, total: r.total, detail: r.rolls.join(", "), label: null });
+  });
+});
+$("rollCustomBtn").addEventListener("click", () => {
+  const f = $("customFormula").value.trim();
+  const r = rollFormula(f);
+  if (!r) { toast("Format attendu : 2d6, 1d20+3, …"); return; }
+  pushDiceLog({ formula: f, total: r.total, detail: r.rolls.join(", ") + (r.mod ? " " + signed(r.mod) : ""), label: null });
+  $("customFormula").value = "";
+});
+function rollStat(label, mod) {
+  const r = rollFormula("1d20");
+  const total = r.total + mod;
+  pushDiceLog({ formula: "1d20" + signed(mod), total, detail: r.rolls.join(", ") + " " + signed(mod), label });
+}
+function renderDiceLog() {
+  const wrap = $("diceLogList");
+  const log = state.diceLog || [];
+  if (!log.length) { wrap.innerHTML = '<div class="empty-note">Aucun jet pour l\\'instant.</div>'; return; }
+  wrap.innerHTML = log.map((e) => `
+    <div class="dice-log-entry">
+      <div class="who">${escapeHtml(e.by)}${e.label ? " — " + escapeHtml(e.label) : ""} · ${escapeHtml(e.formula)}</div>
+      <span class="total">${e.total}</span> <span class="detail">(${escapeHtml(e.detail)})</span>
+    </div>`).join("");
+}
+
+// ---------------- Initiative ----------------
+function statMod(tok, key) { return (tok.stats && tok.stats[key]) || 0; }
+$("rollInitBtn").addEventListener("click", () => {
+  const order = (state.tokens || []).map((t) => {
+    const r = rollFormula("1d20");
+    return { tokenId: t.id, name: t.name, score: r.total + statMod(t, "agilite") };
+  }).sort((a, b) => b.score - a.score);
+  if (!order.length) { toast("Ajoute au moins un jeton d'abord."); return; }
+  saveState({ initiative: { active: true, round: 1, currentIndex: 0, order } });
+  toast("Initiative lancée.");
+});
+$("nextTurnBtn").addEventListener("click", () => {
+  const init = state.initiative;
+  if (!init || !init.active) return;
+  let nextIndex = init.currentIndex + 1;
+  let round = init.round;
+  let newTokens = state.tokens;
+  if (nextIndex >= init.order.length) {
+    nextIndex = 0; round += 1;
+    newTokens = (state.tokens || []).map((t) => ({
+      ...t,
+      effects: (t.effects || []).map((fx) => ({ ...fx, duration: fx.duration - 1 })).filter((fx) => fx.duration > 0),
+    }));
+  }
+  saveState({ initiative: { ...init, currentIndex: nextIndex, round }, tokens: newTokens });
+});
+$("endCombatBtn").addEventListener("click", () => {
+  saveState({ initiative: { active: false, round: 1, currentIndex: 0, order: [] } });
+});
+function renderInitiative() {
+  const init = state.initiative || { active: false, order: [] };
+  $("nextTurnBtn").style.display = init.active && isGM ? "inline-flex" : "none";
+  $("endCombatBtn").style.display = init.active && isGM ? "inline-flex" : "none";
+  $("roundBadge").textContent = init.active ? `Round ${init.round}` : "Aucun combat en cours";
+  const wrap = $("initList");
+  if (!init.active || !init.order.length) { wrap.innerHTML = ""; return; }
+  wrap.innerHTML = init.order.map((entry, i) => `
+    <div class="init-row ${i === init.currentIndex ? "current" : ""}">
+      <div class="init-score">${entry.score}</div>
+      <div class="init-name">${escapeHtml(entry.name)}</div>
+    </div>`).join("");
+}
+
+// ---------------- Sheet modal ----------------
+const sheetOverlay = $("sheetOverlay");
+const sheetBody = $("sheetBody");
+$("sheetClose").addEventListener("click", closeSheet);
+sheetOverlay.addEventListener("click", (e) => { if (e.target === sheetOverlay) closeSheet(); });
+function closeSheet() { sheetOverlay.classList.add("hidden"); }
+
+function canManageExtras(tok) { return isGM || (tok.type === "player" && myId && tok.ownerId === myId); }
+
+function openSheet(tokenId) {
+  const tok = (state.tokens || []).find((t) => t.id === tokenId);
+  if (!tok) return;
+  const canSeeFull = isGM || tok.type === "player" || tok.revealed;
+  const isMine = myId && tok.ownerId === myId;
+  const canClaim = !isGM && tok.type === "player" && !tok.ownerId && myId;
+  const editableExtras = canManageExtras(tok);
+
+  let html = `
+    <div class="sheet-topline">
+      <span class="sheet-dot" style="background:${tokenColorVar(tok.type)}"></span>
+      <span class="sheet-name">${escapeHtml(tok.name || "Sans nom")}</span>
+      ${tok.subtitle ? `<span class="sheet-subtitle">— ${escapeHtml(tok.subtitle)}</span>` : ""}
+    </div>
+    ${isMine ? '<div class="owner-tag">C\\'est votre personnage</div>' : ""}
+  `;
+  if (isGM && tok.type !== "player") {
+    html += `<div class="gm-reveal-row"><span>Visible des joueurs</span>
+      <label class="switch"><input type="checkbox" id="sheetReveal" ${tok.revealed ? "checked" : ""}><span class="slider"></span></label></div>`;
+  }
+
+  if (canSeeFull) {
+    const hp = tok.hp || { current: 0, max: 0 };
+    const hpPct = hp.max ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 100;
+    const hpClass = hpPct > 60 ? "ok" : hpPct > 25 ? "mid" : "";
+    html += `<div class="sheet-levelline">Niveau ${tok.level ?? 1} — ${hp.current}/${hp.max} PV</div>
+      <div class="hp-bar-track"><div class="hp-bar-fill ${hpClass}" style="width:${hpPct}%"></div></div>`;
+    if (editableExtras) {
+      html += `<div class="hp-edit">PV : <input type="number" id="hpCurInput" value="${hp.current}"> / <input type="number" id="hpMaxInput" value="${hp.max}"></div>`;
+    }
+    html += `<div class="stat-grid">
+        <div class="stat-box" data-stat="force"><div class="val">${signed(tok.stats?.force)}</div><div class="lbl">Force</div></div>
+        <div class="stat-box" data-stat="agilite"><div class="val">${signed(tok.stats?.agilite)}</div><div class="lbl">Agilité</div></div>
+        <div class="stat-box" data-stat="esprit"><div class="val">${signed(tok.stats?.esprit)}</div><div class="lbl">Esprit</div></div>
+        <div class="stat-box" data-stat="volonte"><div class="val">${signed(tok.stats?.volonte)}</div><div class="lbl">Volonté</div></div>
+      </div>
+      <div class="sheet-section-title">Secondaires</div>
+      <div class="sec-grid">
+        <div><span>Défense</span><span>${tok.secondary?.defense ?? "—"}</span></div>
+        <div><span>Perception</span><span>${tok.secondary?.perception ?? "—"}</span></div>
+        <div><span>Résistance</span><span>${tok.secondary?.resistance ?? "—"}</span></div>
+        <div><span>Volonté mentale</span><span>${tok.secondary?.volonteMentale ?? "—"}</span></div>
+      </div>`;
+    if (tok.skills && tok.skills.length) {
+      html += `<div class="sheet-section-title">Compétences (clic = jet de d20)</div>
+        <div class="skills-list">${tok.skills.map((s, i) => `<div data-skill="${i}"><span>${escapeHtml(s.name)}</span><span>${signed(s.value)}</span></div>`).join("")}</div>`;
+    }
+    html += `<div class="sheet-section-title">Inventaire</div><div id="invList"></div>`;
+    if (editableExtras) html += `<div class="mini-add-form"><input class="name" id="invNameInput" placeholder="Objet"><input class="num" id="invQtyInput" type="number" value="1"><button class="icon-btn" id="invAddBtn">+</button></div>`;
+    html += `<div class="sheet-section-title">Effets actifs</div><div id="fxList"></div>`;
+    if (editableExtras) html += `<div class="mini-add-form"><input class="name" id="fxNameInput" placeholder="Effet (ex : Poison)"><input class="num" id="fxDurInput" type="number" value="3"><button class="icon-btn" id="fxAddBtn">+</button></div>`;
+  } else {
+    html += `<div class="locked-box">🔒 Le Maître du Jeu n'a pas encore révélé ces informations.</div>`;
+  }
+
+  html += `<div class="sheet-actions">`;
+  if (isGM) html += `<button class="icon-btn" id="sheetEditBtn">✎ Modifier</button>`;
+  if (canClaim) html += `<button class="icon-btn primary" id="sheetClaimBtn">Revendiquer ce personnage</button>`;
+  html += `</div>`;
+
+  sheetBody.innerHTML = html;
+  sheetOverlay.classList.remove("hidden");
+
+  if (canSeeFull) { renderInvList(tok, editableExtras); renderFxList(tok, editableExtras); }
+
+  const revealBox = $("sheetReveal");
+  if (revealBox) revealBox.addEventListener("change", () => {
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, revealed: revealBox.checked } : t));
+  });
+  const editBtn = $("sheetEditBtn");
+  if (editBtn) editBtn.addEventListener("click", () => { closeSheet(); openForm(tok.id); });
+  const claimBtn = $("sheetClaimBtn");
+  if (claimBtn) claimBtn.addEventListener("click", () => {
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, ownerId: myId, ownerName: myName } : t));
+    closeSheet(); toast("Personnage revendiqué.");
+  });
+  sheetBody.querySelectorAll(".stat-box").forEach((box) => box.addEventListener("click", () => {
+    const key = box.dataset.stat;
+    const labels = { force:"Force", agilite:"Agilité", esprit:"Esprit", volonte:"Volonté" };
+    rollStat(tok.name + " — " + labels[key], (tok.stats && tok.stats[key]) || 0);
+  }));
+  sheetBody.querySelectorAll(".skills-list [data-skill]").forEach((row) => row.addEventListener("click", () => {
+    const s = tok.skills[Number(row.dataset.skill)];
+    rollStat(tok.name + " — " + s.name, s.value || 0);
+  }));
+  const hpCurInput = $("hpCurInput"), hpMaxInput = $("hpMaxInput");
+  function commitHp() {
+    if (!hpCurInput) return;
+    const cur = Number(hpCurInput.value) || 0, max = Number(hpMaxInput.value) || 0;
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, hp: { current: cur, max } } : t));
+  }
+  if (hpCurInput) { hpCurInput.addEventListener("change", commitHp); hpMaxInput.addEventListener("change", commitHp); }
+}
+
+function renderInvList(tok, editable) {
+  const wrap = $("invList");
+  if (!wrap) return;
+  const items = tok.inventory || [];
+  wrap.innerHTML = items.length ? items.map((it) => `
+    <div class="inv-row"><span>${escapeHtml(it.name)}</span><span class="qty">×${it.qty}</span>${editable ? `<button class="rm" data-id="${it.id}">✕</button>` : ""}</div>`).join("")
+    : '<div class="empty-note">Vide.</div>';
+  wrap.querySelectorAll(".rm").forEach((btn) => btn.addEventListener("click", () => {
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, inventory: (t.inventory || []).filter((i) => i.id !== btn.dataset.id) } : t));
+    openSheet(tok.id);
+  }));
+  const addBtn = $("invAddBtn");
+  if (addBtn) addBtn.addEventListener("click", () => {
+    const name = $("invNameInput").value.trim();
+    const qty = Number($("invQtyInput").value) || 1;
+    if (!name) return;
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, inventory: (t.inventory || []).concat([{ id: uid(), name, qty }]) } : t));
+    openSheet(tok.id);
+  });
+}
+function renderFxList(tok, editable) {
+  const wrap = $("fxList");
+  if (!wrap) return;
+  const fx = tok.effects || [];
+  wrap.innerHTML = fx.length ? fx.map((e) => `
+    <div class="fx-row"><span>${escapeHtml(e.name)}</span><span class="dur">${e.duration} tour(s)</span>${editable ? `<button class="rm" data-id="${e.id}">✕</button>` : ""}</div>`).join("")
+    : '<div class="empty-note">Aucun effet actif.</div>';
+  wrap.querySelectorAll(".rm").forEach((btn) => btn.addEventListener("click", () => {
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, effects: (t.effects || []).filter((e) => e.id !== btn.dataset.id) } : t));
+    openSheet(tok.id);
+  }));
+  const addBtn = $("fxAddBtn");
+  if (addBtn) addBtn.addEventListener("click", () => {
+    const name = $("fxNameInput").value.trim();
+    const duration = Number($("fxDurInput").value) || 1;
+    if (!name) return;
+    saveTokens((state.tokens || []).map((t) => t.id === tok.id ? { ...t, effects: (t.effects || []).concat([{ id: uid(), name, duration }]) } : t));
+    openSheet(tok.id);
+  });
+}
+
+// ---------------- Form modal (add/edit token) ----------------
+const formOverlay = $("formOverlay");
+$("formClose").addEventListener("click", closeForm);
+$("formCancel").addEventListener("click", closeForm);
+formOverlay.addEventListener("click", (e) => { if (e.target === formOverlay) closeForm(); });
+function closeForm() { formOverlay.classList.add("hidden"); }
+let formType = "monster";
+document.querySelectorAll(".type-opt").forEach((opt) => {
+  opt.addEventListener("click", () => {
+    formType = opt.dataset.type;
+    document.querySelectorAll(".type-opt").forEach((o) => o.classList.remove("sel"));
+    opt.classList.add("sel");
+    $("revealRow").style.display = formType === "player" ? "none" : "flex";
+  });
+});
+function openForm(tokenId) {
+  editingTokenId = tokenId;
+  const tok = tokenId ? (state.tokens || []).find((t) => t.id === tokenId) : null;
+  $("formTitle").textContent = tok ? "Modifier le jeton" : "Nouveau jeton";
+  $("deleteTokenBtn").style.display = tok ? "inline-flex" : "none";
+  formType = tok ? tok.type : "monster";
+  document.querySelectorAll(".type-opt").forEach((o) => o.classList.toggle("sel", o.dataset.type === formType));
+  $("revealRow").style.display = formType === "player" ? "none" : "flex";
+  $("fName").value = tok?.name || "";
+  $("fSubtitle").value = tok?.subtitle || "";
+  $("fLevel").value = tok?.level ?? 1;
+  $("fHpCur").value = tok?.hp?.current ?? 10;
+  $("fHpMax").value = tok?.hp?.max ?? 10;
+  $("fFor").value = tok?.stats?.force ?? 0;
+  $("fAgi").value = tok?.stats?.agilite ?? 0;
+  $("fEsp").value = tok?.stats?.esprit ?? 0;
+  $("fVol").value = tok?.stats?.volonte ?? 0;
+  $("fDef").value = tok?.secondary?.defense ?? 10;
+  $("fPer").value = tok?.secondary?.perception ?? 10;
+  $("fRes").value = tok?.secondary?.resistance ?? 10;
+  $("fVolM").value = tok?.secondary?.volonteMentale ?? 10;
+  $("fRevealed").checked = tok?.revealed || false;
+  editingSkills = tok?.skills ? tok.skills.map((s) => ({ ...s })) : [];
+  renderSkillsEditor();
+  formOverlay.classList.remove("hidden");
+}
+function renderSkillsEditor() {
+  const wrap = $("skillsEditor");
+  wrap.innerHTML = "";
+  editingSkills.forEach((s, i) => {
+    const row = document.createElement("div");
+    row.className = "skill-edit-row";
+    row.innerHTML = `<input type="text" placeholder="Discrétion" value="${escapeHtml(s.name || "")}"><input type="number" value="${s.value ?? 0}"><button title="Retirer">✕</button>`;
+    const [nameInput, valInput, delBtn] = row.children;
+    nameInput.addEventListener("input", () => { editingSkills[i].name = nameInput.value; });
+    valInput.addEventListener("input", () => { editingSkills[i].value = Number(valInput.value) || 0; });
+    delBtn.addEventListener("click", () => { editingSkills.splice(i, 1); renderSkillsEditor(); });
+    wrap.appendChild(row);
+  });
+}
+$("addSkillBtn").addEventListener("click", () => { editingSkills.push({ name: "", value: 0 }); renderSkillsEditor(); });
+$("formSave").addEventListener("click", () => {
+  const name = $("fName").value.trim();
+  if (!name) { toast("Merci de donner un nom au jeton."); return; }
+  const existing = editingTokenId ? (state.tokens || []).find((t) => t.id === editingTokenId) : null;
+  const tokenData = {
+    id: existing ? existing.id : uid(),
+    type: formType, name,
+    subtitle: $("fSubtitle").value.trim(),
+    level: Number($("fLevel").value) || 1,
+    hp: { current: Number($("fHpCur").value) || 0, max: Number($("fHpMax").value) || 0 },
+    stats: { force: Number($("fFor").value)||0, agilite: Number($("fAgi").value)||0, esprit: Number($("fEsp").value)||0, volonte: Number($("fVol").value)||0 },
+    secondary: { defense: Number($("fDef").value)||0, perception: Number($("fPer").value)||0, resistance: Number($("fRes").value)||0, volonteMentale: Number($("fVolM").value)||0 },
+    skills: editingSkills.filter((s) => s.name.trim()),
+    revealed: formType === "player" ? true : $("fRevealed").checked,
+    x: existing ? existing.x : 50, y: existing ? existing.y : 50,
+    ownerId: existing ? (existing.ownerId || null) : null,
+    ownerName: existing ? (existing.ownerName || null) : null,
+    inventory: existing ? (existing.inventory || []) : [],
+    effects: existing ? (existing.effects || []) : [],
+  };
+  const newTokens = existing ? (state.tokens || []).map((t) => t.id === existing.id ? tokenData : t) : (state.tokens || []).concat([tokenData]);
+  saveTokens(newTokens);
+  closeForm();
+  toast(existing ? "Jeton mis à jour." : "Jeton ajouté.");
+});
+$("deleteTokenBtn").addEventListener("click", () => { if (editingTokenId) { deleteToken(editingTokenId); closeForm(); } });
+
+// ---------------- Render all ----------------
+function renderAll() {
+  if (titleEl.textContent.trim() !== (state.title || "Table de jeu")) titleEl.textContent = state.title || "Table de jeu";
+  renderMap();
+  renderTokens();
+  renderTokenList();
+  renderInitiative();
+  renderDiceLog();
+}
+
+boot();
+</script>
+</body>
+</html>
